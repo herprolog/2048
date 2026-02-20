@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048風ゲーム</title>
+    <style>
+        :root {
+            --grid-size: 4;
+            --tile-gap: 12px;
+            /* ボード背景: 濃いブルーグレー/スレート (コントラスト強調) */
+            --board-bg: #607d8b;
+            /* 空きセル背景: 中くらいのブルーグレー */
+            --empty-cell-bg: #90a4ae;
+            /* 濃いテキスト: ダークスレート */
+            --tile-font: #37474f;
+            /* 明るいテキスト: 白 */
+            --light-text: #fcfcfc; 
+            --size: min(90vw, 450px); 
+        }
+
+        /* Basic Reset and Layout */
+        body {
+            margin: 0;
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80vh;
+            /* ベース背景: 非常に薄いグレー */
+            background-color: #fafafa;
+            padding: 10px;
+            user-select: none;
+            overflow: hidden; 
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: var(--size);
+            max-width: 450px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 50px;
+            font-weight: bold;
+            color: var(--tile-font);
+            margin: 0;
+        }
+
+        .scores {
+            display: flex;
+            gap: 5px;
+        }
+
+        .score-container {
+            /* スコアコンテナ: 濃いスレートブルー */
+            background: #455a64; 
+            color: var(--light-text);
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-align: center;
+            line-height: 1.2;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .score-value {
+            font-size: 25px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: var(--size);
+            max-width: 450px;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            color: var(--tile-font);
+            font-weight: bold;
+            min-height: 20px;
+            text-align: left;
+            flex-grow: 1;
+            padding-right: 10px;
+        }
+
+        .btn-new-game {
+            /* ボタン: コーラル（赤オレンジ）で強いアクセント */
+            background-color: #ff7043;
+            color: var(--light-text);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-new-game:hover {
+            background-color: #ff8a65;
+        }
+
+        /* Game Grid */
+        .game-container {
+            position: relative;
+        }
+
+        .grid {
+            width: var(--size);
+            height: var(--size);
+            max-width: 450px;
+            max-height: 450px;
+            background: var(--board-bg);
+            border-radius: 6px;
+            padding: var(--tile-gap);
+            display: grid;
+            grid-template-columns: repeat(var(--grid-size), 1fr);
+            grid-template-rows: repeat(var(--grid-size), 1fr);
+            gap: var(--tile-gap);
+            box-sizing: border-box; 
+        }
+
+        .grid-cell {
+            width: 100%;
+            height: 100%;
+            border-radius: 3px;
+            background: var(--empty-cell-bg);
+        }
+        
+        /* Tile Layer and Tiles */
+        .tile-container {
+            position: absolute;
+            width: var(--size);
+            height: var(--size);
+            max-width: 450px;
+            max-height: 450px;
+            top: 0;
+            left: 0;
+            pointer-events: none; 
+        }
+
+        .tile {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            font-weight: 900;
+            box-sizing: border-box;
+            z-index: 2;
+        }
+        
+        /* タイルが重なるときのために、z-indexを値に応じて調整 */
+        .tile[data-value="2"] { z-index: 3; }
+        .tile[data-value="4"] { z-index: 4; }
+        .tile[data-value="8"] { z-index: 5; }
+
+        /* Tile Color Mapping (値と色のマッピング) */
+        /* 2 - 8: 明るいティール系 (フォント: 濃いテキスト) */
+        .tile[data-value="2"]    { background: #e0f2f1; color: var(--tile-font); font-size: 35px; }
+        .tile[data-value="4"]    { background: #b2dfdb; color: var(--tile-font); font-size: 35px; }
+        .tile[data-value="8"]    { background: #80cbc4; color: var(--tile-font); font-size: 35px; }
+        
+        /* 16 - 128: 深いティール/エメラルド系 (フォント: 明るいテキスト) */
+        .tile[data-value="16"]   { background: #4db6ac; color: var(--light-text); font-size: 35px; }
+        .tile[data-value="32"]   { background: #26a69a; color: var(--light-text); font-size: 35px; }
+        .tile[data-value="64"]   { background: #00897b; color: var(--light-text); font-size: 35px; }
+        .tile[data-value="128"]  { background: #00695c; color: var(--light-text); font-size: 30px; }
+        
+        /* 256 - 2048: インディゴ系 (フォント: 明るいテキスト) */
+        .tile[data-value="256"]  { background: #45A1CF; color: var(--light-text); font-size: 30px; }
+        .tile[data-value="512"]  { background: #208DC3; color: var(--light-text); font-size: 30px; }
+        .tile[data-value="1024"] { background: #007AB7; color: var(--light-text); font-size: 25px; }
+        .tile[data-value="2048"] { background: #3261AB; color: var(--light-text); font-size: 25px; }
+        
+        /* 4桁以上のタイルはフォントサイズを小さく調整 */
+        .tile[data-value^="4"][data-value$="96"], 
+        .tile[data-value^="8"][data-value$="92"] { font-size: 20px; }
+
+        /* Game Over Overlay */
+        .game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 300ms ease;
+        }
+
+        .game-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .overlay-message {
+            font-size: 30px;
+            font-weight: bold;
+            color: var(--tile-font);
+            margin-bottom: 20px;
+        }
+        
+        /* Responsive Font Sizing */
+        @media (max-width: 450px) {
+            h1 { font-size: 40px; }
+            .score-value { font-size: 20px; }
+            .score-container { padding: 5px 10px; font-size: 10px; }
+
+            /* タイルフォントサイズを小型画面用に調整 */
+            .tile[data-value="2"], .tile[data-value="4"] { font-size: 30px; }
+            .tile[data-value="8"], .tile[data-value="16"], .tile[data-value="32"], .tile[data-value="64"] { font-size: 30px; }
+            .tile[data-value="128"], .tile[data-value="256"], .tile[data-value="512"] { font-size: 25px; }
+            .tile[data-value="1024"], .tile[data-value="2048"] { font-size: 20px; }
+            .overlay-message { font-size: 24px; }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>2048</h1>
+        <div class="scores">
+            <div class="score-container">
+                SCORE
+                <div id="score" class="score-value">0</div>
+            </div>
+            <div class="score-container">
+                BEST
+                <div id="highScore" class="score-value">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div id="message" class="message">矢印キーまたはスワイプで操作します</div>
+        <button id="newGameButton" class="btn-new-game">New Game</button>
+    </div>
+
+    <div class="game-container">
+        <div id="gameGrid" class="grid">
+            </div>
+        
+        <div id="tileContainer" class="tile-container">
+            </div>
+
+        <div id="gameOverOverlay" class="game-overlay">
+            <div id="overlayMessage" class="overlay-message">Game Over!</div>
+            <button id="tryAgainButton" class="btn-new-game">Try Again</button>
+        </div>
+    </div>
+    
+    <script>
+        // ===============================================
+        // 1. 定数と状態管理 (Constants and State)
+        // ===============================================
+        const SIZE = 4;
+        const TILE_GAP = 12; 
+        const DEFAULT_MESSAGE = '矢印キーまたはスワイプで操作します'; 
+        
+        let board = [];
+        let score = 0;
+        let highScore = 0;
+        let gameEnded = false;
+
+        // DOM Elements
+        const gridEl = document.getElementById('gameGrid');
+        const tileContainerEl = document.getElementById('tileContainer');
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('highScore');
+        const newGameButton = document.getElementById('newGameButton');
+        const tryAgainButton = document.getElementById('tryAgainButton');
+        const messageEl = document.getElementById('message');
+        const gameOverOverlayEl = document.getElementById('gameOverOverlay');
+        const overlayMessageEl = document.getElementById('overlayMessage');
+
+        // ===============================================
+        // 2. ユーティリティ (Utilities)
+        // ===============================================
+        
+        /** ローカルストレージからハイスコアをロードする */
+        const loadHighScore = () => {
+            const storedScore = localStorage.getItem('2048_high_score');
+            highScore = storedScore ? parseInt(storedScore) : 0;
+            highScoreEl.textContent = highScore;
+        };
+
+        /** ハイスコアを更新する */
+        const updateHighScore = () => {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('2048_high_score', highScore);
+                highScoreEl.textContent = highScore;
+            }
+        };
+
+        /** タイルの位置とサイズをグリッドの実際の幅に基づいて正確に計算 */
+        const getTilePosition = (row, col) => {
+            const boardWidth = gridEl.offsetWidth; 
+            const tileGap = TILE_GAP; 
+            
+            const tileSize = (boardWidth - (5 * tileGap)) / SIZE; 
+            
+            const x = tileGap + col * (tileSize + tileGap);
+            const y = tileGap + row * (tileSize + tileGap);
+            
+            return { x, y, tileSize }; 
+        };
+
+        /** タイルDOM要素のスタイルを設定する */
+        const setTileStyle = (tileEl, row, col, value) => {
+            const { x, y, tileSize } = getTilePosition(row, col); 
+            
+            tileEl.style.width = `${tileSize}px`;
+            tileEl.style.height = `${tileSize}px`;
+            
+            // translate transform を適用
+            tileEl.style.transform = `translate(${x}px, ${y}px)`; 
+            
+            tileEl.dataset.value = value;
+            tileEl.textContent = value;
+            tileEl.dataset.r = row; 
+            tileEl.dataset.c = col;
+        };
+
+
+        // ===============================================
+        // 3. ゲームロジック (Core Logic)
+        // ===============================================
+        
+        /** 新しいタイルDOM要素を作成する */
+        const createTileElement = (r, c, value) => {
+            const tileEl = document.createElement('div');
+            tileEl.classList.add('tile');
+            setTileStyle(tileEl, r, c, value); 
+            return tileEl;
+        };
+        
+        /** 盤面全体を再描画する */
+        const redrawBoard = () => {
+            tileContainerEl.innerHTML = ''; 
+
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (board[r][c] !== 0) {
+                        const tileEl = createTileElement(r, c, board[r][c]); 
+                        tileContainerEl.appendChild(tileEl);
+                    }
+                }
+            }
+        };
+
+        /** 新しいタイルをランダムな空きマスに追加する */
+        const addNewTile = (count = 1) => {
+            const emptyCells = [];
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (board[r][c] === 0) { 
+                        emptyCells.push({ r, c });
+                    }
+                }
+            }
+
+            for (let i = 0; i < count && emptyCells.length > 0; i++) {
+                const index = Math.floor(Math.random() * emptyCells.length);
+                const { r, c } = emptyCells.splice(index, 1)[0]; 
+                const value = Math.random() < 0.9 ? 2 : 4; 
+
+                board[r][c] = value;
+            }
+        };
+        
+        /** 1行（または列）のスライドと合体を処理する */
+        const slideAndMergeLine = (line) => {
+            const originalLine = [...line]; 
+            const filtered = line.filter(v => v !== 0);
+            const result = [];
+            let i = 0;
+
+            while (i < filtered.length) {
+                if (i + 1 < filtered.length && filtered[i] === filtered[i + 1]) {
+                    const mergedValue = filtered[i] * 2;
+                    result.push(mergedValue);
+                    score += mergedValue; 
+                    i += 2;
+                } else {
+                    result.push(filtered[i]);
+                    i += 1;
+                }
+            }
+            
+            /** 残りを 0 で埋めて 4 マスの行に揃える */
+            while (result.length < SIZE) result.push(0);
+
+            let lineMoved = false;
+            for(let k = 0; k < SIZE; k++) {
+                if (originalLine[k] !== result[k]) {
+                    lineMoved = true;
+                    break;
+                }
+            }
+            
+            return { newLine: result, moved: lineMoved };
+        };
+
+        /** 盤面を操作する (スライドと合体) */
+        const move = (dir) => {
+            let moved = false;
+            
+            for (let i = 0; i < SIZE; i++) { 
+                let line = [];
+                
+                // 1. 行/列を抽出
+                for (let j = 0; j < SIZE; j++) {
+                    if (dir === 0) line.push(board[j][i]); 
+                    else if (dir === 2) line.push(board[SIZE - 1 - j][i]); 
+                    else if (dir === 3) line.push(board[i][j]); 
+                    else if (dir === 1) line.push(board[i][SIZE - 1 - j]); 
+                }
+
+                // 2. スライドと合体
+                const { newLine, moved: lineMoved } = slideAndMergeLine(line);
+                if (lineMoved) moved = true;
+
+                // 3. 盤面に戻す
+                for (let j = 0; j < SIZE; j++) {
+                    const val = newLine[j];
+                    
+                    if (dir === 0) board[j][i] = val; 
+                    else if (dir === 2) board[SIZE - 1 - j][i] = val; 
+                    else if (dir === 3) board[i][j] = val; 
+                    else if (dir === 1) board[i][SIZE - 1 - j] = val; 
+                }
+            }
+
+            if (moved) {
+                addNewTile(); 
+                redrawBoard();
+                updateGameStatus();
+                
+                if (!hasLegalMoves()) {
+                    endGame(false);
+                }
+            }
+
+            return moved; 
+        };
+
+        /** 合法手があるかチェックする (ゲームオーバー判定用) */
+        const hasLegalMoves = () => {
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (board[r][c] === 0) return true;
+                    const value = board[r][c];
+                    const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]]; 
+                    for (const [dr, dc] of directions) {
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === value) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        };
+
+        /** ゲームの状態を更新する */
+        const updateGameStatus = () => {
+            scoreEl.textContent = score;
+            updateHighScore();
+            messageEl.textContent = DEFAULT_MESSAGE;
+            
+            let won = false;
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (board[r][c] === 2048) {
+                        won = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (won && !gameEnded) {
+                messageEl.textContent = '2048達成！続けて高スコアを目指せます';
+            }
+        };
+
+        // ===============================================
+        // 4. ゲーム制御 (Game Control)
+        // ===============================================
+
+        /** ゲームを初期化し、開始する */
+        const startGame = () => {
+            board = new Array(SIZE).fill(0).map(() => new Array(SIZE).fill(0));
+            score = 0;
+            gameEnded = false;
+            
+            gridEl.innerHTML = Array.from({ length: SIZE * SIZE }, () => `<div class="grid-cell"></div>`).join('');
+            
+            gameOverOverlayEl.classList.remove('active');
+            
+            addNewTile(2); 
+            redrawBoard(); 
+            
+            updateGameStatus();
+        };
+
+        /** ゲームを終了する */
+        const endGame = (win = false) => {
+            gameEnded = true;
+            gameOverOverlayEl.classList.add('active');
+            overlayMessageEl.textContent = 'Game Over!'; 
+            updateHighScore();
+        };
+
+        // ===============================================
+        // 5. 入力処理 (Input Handling)
+        // ===============================================
+        
+        /** 共通のムーブ処理 */
+        const handleMove = (dir) => {
+            if (gameEnded) return;
+
+            const moved = move(dir);
+
+            if (!moved && !hasLegalMoves()) {
+                endGame(false);
+            }
+        };
+
+        // --- キーボード入力 ---
+        document.addEventListener('keydown', (e) => {
+            let direction = null;
+            switch (e.key) {
+                case 'ArrowUp':
+                    direction = 0; // 上
+                    break;
+                case 'ArrowRight':
+                    direction = 1; // 右
+                    break;
+                case 'ArrowDown':
+                    direction = 2; // 下
+                    break;
+                case 'ArrowLeft':
+                    direction = 3; // 左
+                    break;
+            }
+            if (direction !== null) {
+                e.preventDefault(); 
+                handleMove(direction);
+            }
+        });
+
+        // --- スワイプ入力 (モバイル対応) ---
+        let touchstartX = 0;
+        let touchstartY = 0;
+        const SWIPE_THRESHOLD = 50; 
+
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                touchstartX = e.touches[0].clientX;
+                touchstartY = e.touches[0].clientY;
+            }
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && (Math.abs(e.touches[0].clientX - touchstartX) > 10 || Math.abs(e.touches[0].clientY - touchstartY) > 10)) {
+                 e.preventDefault(); 
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length !== 1) return;
+
+            const touchendX = e.changedTouches[0].clientX;
+            const touchendY = e.changedTouches[0].clientY;
+
+            const dx = touchendX - touchstartX;
+            const dy = touchendY - touchstartY;
+
+            let direction = null;
+
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_THRESHOLD) {
+                direction = dx > 0 ? 1 : 3; 
+            } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_THRESHOLD) {
+                direction = dy > 0 ? 2 : 0; 
+            }
+
+            if (direction !== null) {
+                handleMove(direction);
+            }
+        });
+
+
+        // ===============================================
+        // 6. 初期化とリサイズ対応 (Initialization & Resize)
+        // ===============================================
+
+        newGameButton.addEventListener('click', startGame);
+        tryAgainButton.addEventListener('click', startGame);
+        
+        loadHighScore();
+        startGame(); 
+        
+        // ウィンドウリサイズ時のタイル位置ズレを解消
+        window.addEventListener('resize', () => {
+            redrawBoard(); 
+        });
+
+    </script>
+</body>
+</html>
