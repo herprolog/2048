@@ -2,38 +2,43 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>シンプル2048</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048みたいなゲーム</title>
     <style>
         body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #faf8ef; font-family: Arial, sans-serif; }
         #score { font-size: 24px; font-weight: bold; margin-bottom: 10px; color: #776e65; }
-        .grid { width: 340px; height: 340px; background: #bbada0; border-radius: 6px; position: relative; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 10px; }
-        .cell { width: 75px; height: 75px; background: rgba(238, 228, 218, 0.35); border-radius: 3px; display: flex; justify-content: center; align-items: center; font-size: 25px; font-weight: bold; color: #776e65; }
-        /* 数字ごとの色設定 */
-        .n2 { background: #eee4da; }
-        .n4 { background: #ede0c8; }
-        .n8 { background: #f2b179; color: white; }
-        .n16 { background: #f59563; color: white; }
-        .n32 { background: #f67c5f; color: white; }
-        .n64 { background: #f65e3b; color: white; }
-        .n128 { background: #edcf72; color: white; font-size: 20px; }
-        .n256 { background: #edcc61; color: white; font-size: 20px; }
-        .n512 { background: #edc850; color: white; font-size: 20px; }
-        .n1024 { background: #edc53f; color: white; font-size: 15px; }
-        .n2048 { background: #edc22e; color: white; font-size: 15px; }
-    </style>
+        .grid {width: 340px; height: 340px; background: #1a1a1b; border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 10px;}
+        .cell { width: 75px; height: 75px; background: #333333; border-radius: 3px; display: flex; justify-content: center; align-items: center; font-size: 25px; font-weight: bold; color: #776e65; }
+        .n2 { background: #00d4ff; color: #000; box-shadow: 0 0 10px #00d4ff; }
+        .n4 { background: #0094ff; color: #fff; box-shadow: 0 0 10px #0094ff; }
+        .n8 { background: #bd00ff; color: #fff; box-shadow: 0 0 10px #bd00ff; }
+        .n16 { background: #ff00f0; color: #fff; box-shadow: 0 0 10px #ff00f0; }
+        .n32 { background: #ff005c; color: #fff; box-shadow: 0 0 15px #ff005c; }
+        .n64 { background: #ffbd00; color: #000; box-shadow: 0 0 15px #ffbd00; }
+        .n128 { background: #2de2e2; color: #000; font-size: 20px; box-shadow: 0 0 20px #2de2e2; }
+        .n256 { background: #00ff88; color: #000; font-size: 20px; box-shadow: 0 0 20px #00ff88; }
+        .n512 { background: #ffeb3b; color: #000; font-size: 20px; box-shadow: 0 0 20px #ffeb3b; }
+        .n1024 { background: #ff5722; color: #fff; font-size: 15px; box-shadow: 0 0 25px #ff5722; }
+        .n2048 { background: #ffffff; color: #000; font-size: 15px; box-shadow: 0 0 30px #ffffff; }
+        #NewGame {background-color: #8f7a66; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 10px;
+     </style>
 </head>
 <body>
+    <button id="NewGame">New Game</button>
     <div id="score">Score: 0</div>
+    </div>
     <div class="grid" id="grid"></div>
+    <div id="game-over-message" style="color: red; font-weight: bold;"></div>
 
     <script>
         const gridDisplay = document.getElementById('grid');
         const scoreDisplay = document.getElementById('score');
+        const newGameBtn = document.getElementById('NewGame');
         const width = 4;
         let squares = [];
         let score = 0;
 
-        // ボードの作成
+        // create board
         function createBoard() {
             for (let i = 0; i < width * width; i++) {
                 let square = document.createElement('div');
@@ -46,17 +51,17 @@
             generate();
         }
 
-        // ランダムに「2」を生成
+        // create 2 or 4
         function generate() {
             let randomNumber = Math.floor(Math.random() * squares.length);
             if (squares[randomNumber].innerHTML === "") {
-                squares[randomNumber].innerHTML = 2;
+                squares[randomNumber].innerHTML = Math.random() > 0.8 ? 4 : 2;
                 updateStyles();
                 checkForGameOver();
             } else generate();
         }
 
-        // 数値に合わせてクラス（色）を更新
+        // update color
         function updateStyles() {
             squares.forEach(sq => {
                 sq.className = 'cell';
@@ -64,13 +69,12 @@
             });
         }
 
-        // 行の移動ロジック（右方向を基準に作成し、他は回転で対応）
+        // move
         function move(direction) {
             let hasChanged = false;
             for (let i = 0; i < 4; i++) {
                 let row = [];
                 for (let j = 0; j < 4; j++) {
-                    // 方向によって取得するインデックスを切り替え
                     let idx = (direction === 'left' || direction === 'right') ? (i * 4 + j) : (j * 4 + i);
                     row.push(parseInt(squares[idx].innerHTML) || 0);
                 }
@@ -90,7 +94,6 @@
                 while (filteredRow.length < 4) filteredRow.push(0);
                 if (direction === 'right' || direction === 'down') filteredRow.reverse();
 
-                // 値を戻す
                 for (let j = 0; j < 4; j++) {
                     let idx = (direction === 'left' || direction === 'right') ? (i * 4 + j) : (j * 4 + i);
                     if (squares[idx].innerHTML != (filteredRow[j] || "")) hasChanged = true;
@@ -104,7 +107,7 @@
             }
         }
 
-        // キー操作
+        // key
         function control(e) {
             if (e.keyCode === 37) move('left');
             else if (e.keyCode === 38) move('up');
@@ -116,15 +119,52 @@
         function checkForGameOver() {
             let zeros = 0;
             for (let i = 0; i < squares.length; i++) {
-                if (squares[i].innerHTML === "") zeros++;
+                if (squares[i].innerHTML === "") {
+                    zeros++;
+                } else {
+                    let current = parseInt(squares[i].innerHTML);
+                    
+                    if(i % 3 == !0){
+                        let rights = parseInt(squares[i+1].innerHTML);
+                        if (current == rights)zeros++;
+                    }
+
+                    if(i < 12){
+                        let bottoms = parseInt(squares[i+4].innerHTML);
+                        if (current == bottoms)zeros++;
+                    }
+                }
             }
+            //alert("テスト表示です");
             if (zeros === 0) {
-                alert('Game Over!');
+                document.getElementById('game-over-message').innerText = 'Game Over! 詰みです。';
                 document.removeEventListener('keyup', control);
             }
         }
 
         createBoard();
+
+        function resetGame() {
+            squares.forEach(sq => {
+                sq.innerHTML = "";
+            });
+    
+            score = 0;
+            scoreDisplay.innerHTML = "Score: 0";
+    
+            document.getElementById('game-over-message').innerText = "";
+    
+
+            document.removeEventListener('keyup', control);
+            document.addEventListener('keyup', control);
+    
+            generate();
+            generate();
+            updateStyles();
+        }
+
+
+        newGameBtn.addEventListener('click', resetGame);
     </script>
 </body>
 </html>
