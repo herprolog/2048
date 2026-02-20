@@ -165,6 +165,42 @@
 
 
         newGameBtn.addEventListener('click', resetGame);
+
+        let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+
+// 指が触れた位置を記録
+document.addEventListener('touchstart', e => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+// 指が離れた位置を記録し、移動方向を計算
+document.addEventListener('touchend', e => {
+    touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
+    handleSwipe();
+}, { passive: true });
+
+function handleSwipe() {
+    const dx = touchEndX - touchStartX;
+    const dy = touchEndY - touchStartY;
+    
+    // 誤操作防止のため、スライド距離が短い場合は無視（30px以上で反応）
+    if (Math.abs(dx) > Math.abs(dy)) {
+        if (Math.abs(dx) > 30) {
+            if (dx > 0) move('right');
+            else move('left');
+        }
+    } else {
+        if (Math.abs(dy) > 30) {
+            if (dy > 0) move('down');
+            else move('up');
+        }
+    }
+}
     </script>
 </body>
 </html>
